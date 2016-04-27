@@ -23,6 +23,7 @@ int Worker::init(int port, std::string addr) {
 }
 
 int Worker::run() {
+  sendDummyMessage();
   return 0;
 }
 
@@ -49,12 +50,14 @@ int Worker::initialize_socket(int port, std::string name) {
   return sock; 
 }
 
-int Worker::connectToMaster() {
-  return 0;
-}
-
 int Worker::sendDummyMessage() {
-  return 0;
+  if(send(masterSocketfd, "hello\n",sizeof("hello\n"),0) == 0){
+    db_out << "Successfully sent 'hello\\n'." << std::endl;
+    return 0;
+  } else {
+    db_out << "Failed to send." << std::endl;
+    return -1;
+  }
 }
 
 int Worker::cleanUp() {
@@ -101,6 +104,7 @@ int main(int argc, char** argv) {
 
   Worker w;
   if (w.init(MasterPort, MasterAddr) == 0) {
+    w.run();
     w.cleanUp();
   }
 

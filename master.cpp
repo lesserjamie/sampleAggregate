@@ -31,6 +31,16 @@ int Master::run() {
   while(true) {
     worker_socket = accept(socketfd,(struct sockaddr*)&sockAddrWorker, &sockAddrWorkerLength);
     db_out << "Successfully accepted " << std::endl;
+    
+    
+    char *buffer = (char *)malloc(3000*sizeof(char));
+    if(recv(socketfd,buffer,sizeof(buffer),0) == 0){
+      db_out << buffer << std::endl;
+      return 0;
+    } else {
+      db_out << "Failed to receive." << std::endl;
+      return -1;
+    }
     break;
   }
 

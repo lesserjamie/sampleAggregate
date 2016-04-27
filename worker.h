@@ -25,7 +25,6 @@ class Worker {
   int masterSocketfd = -1;
 
   int initialize_socket(int port, std::string name);
-  int connectToMaster();
   int sendDummyMessage();
 
  public:
