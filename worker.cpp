@@ -23,8 +23,31 @@ int Worker::init(int port, std::string addr) {
 }
 
 int Worker::run() {
-  sendDummyMessage();
+  std::string message = "HI!\r\n\r\n";
+  sendMessage(masterSocketfd, message);
+  receiveMessage(masterSocketfd);
   return 0;
+}
+
+int Worker::receiveMessage(int socket) {
+   char buffer[BUFSIZ];
+   std::stringstream stream;
+   
+   while (recv(socket,buffer,sizeof(buffer),0) > 0) {
+     stream << buffer;
+     std::memset(buffer, 0, BUFSIZ);
+
+     if(stream.str().find("\r\n\r\n") >= 0) break;
+   }
+
+   std::string message = stream.str();
+   if (message.length() == 0) {
+     db_out << "Failed to receive message." << std::endl;
+     return -1;
+   } else {
+     db_out << "Received:\n" << message.c_str() << std::endl;
+     return 0;
+   }
 }
 
 int Worker::initialize_socket(int port, std::string name) {
@@ -50,9 +73,9 @@ int Worker::initialize_socket(int port, std::string name) {
   return sock; 
 }
 
-int Worker::sendDummyMessage() {
-  if(send(masterSocketfd, "hello\n",sizeof("hello\n"),0) == 0){
-    db_out << "Successfully sent 'hello\\n'." << std::endl;
+int Worker::sendMessage(int socket, std::string message) {
+  if(send(socket, message.c_str(), sizeof(message.c_str()),0) > 0){
+    db_out << "Successfully sent:\n" << message << std::endl;
     return 0;
   } else {
     db_out << "Failed to send." << std::endl;
@@ -63,7 +86,9 @@ int Worker::sendDummyMessage() {
 int Worker::cleanUp() {
   //Assume valid socket
   if (close(masterSocketfd) == 0) {
+    db_out << "Successfully closed socket." << std::endl;
     return 0;
+
   }
 
   db_out << "Failed to close socket." << std::endl;

@@ -5,8 +5,9 @@
 #ifndef MASTER_H
 #define MASTER_H
 
-#include <string>
+#include <cstring>
 #include <iostream>
+#include <sstream>
 #include <fstream>
 #include <fcntl.h>
 #include <netinet/in.h>

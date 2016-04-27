@@ -28,20 +28,38 @@ int Master::run() {
 
   sockAddrWorkerLength = sizeof(sockAddrWorker);
 
-  while(true) {
+  int connection_count = 0;
+
+  while(connection_count < 3) {
     worker_socket = accept(socketfd,(struct sockaddr*)&sockAddrWorker, &sockAddrWorkerLength);
     db_out << "Successfully accepted " << std::endl;
     
     
-    char *buffer = (char *)malloc(3000*sizeof(char));
-    if(recv(socketfd,buffer,sizeof(buffer),0) == 0){
-      db_out << buffer << std::endl;
-      return 0;
-    } else {
-      db_out << "Failed to receive." << std::endl;
-      return -1;
+    char buffer[BUFSIZ];
+    std::stringstream stream;
+
+    while (recv(worker_socket,buffer,sizeof(buffer),0) > 0) {
+      stream << buffer;
+      std::memset(buffer, 0, BUFSIZ);
+      if(stream.str().find("\r\n\r\n") >= 0) break;
     }
-    break;
+
+    std::string message = stream.str();
+    if (message.length() == 0) {
+      db_out << "Failed to receive message." << std::endl;
+    } else {
+      db_out << "Received:\n" << message.c_str() << std::endl;
+
+      std::string response = "Hi back!\r\n\r\n";
+      if (send(worker_socket, response.c_str(), sizeof(response.c_str()), 0) > 0) {
+	db_out << "Successfully send response:\n" << response << std::endl;
+      } else {
+	db_out << "Failed to send response." << std::endl;
+      }
+
+    }
+
+    connection_count++;
   }
 
   return 0;

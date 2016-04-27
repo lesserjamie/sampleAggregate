@@ -5,7 +5,6 @@
 #ifndef WORKER_H
 #define WORKER_H
 
-#include <string>
 #include <iostream>
 #include <fstream>
 #include <fcntl.h>
@@ -13,6 +12,8 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <strings.h>
+#include <sstream>
+#include <cstring>
 
 static bool debug = true;
 #define db_out if(debug) std::cout
@@ -25,7 +26,8 @@ class Worker {
   int masterSocketfd = -1;
 
   int initialize_socket(int port, std::string name);
-  int sendDummyMessage();
+  int sendMessage(int socket, std::string message);
+  int receiveMessage(int socket);
 
  public:
   Worker();
