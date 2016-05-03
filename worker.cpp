@@ -23,9 +23,22 @@ int Worker::init(int port, std::string addr) {
 }
 
 int Worker::run() {
-  std::string message = "HI!\r\n\r\n";
+  running = true;
+
+  std::string message = "WORKER READY\r\n\r\nEND\r\n\r\n";
   sendMessage(masterSocketfd, message);
-  receiveMessage(masterSocketfd);
+
+  while(running) {
+    receiveMessage(masterSocketfd);
+  }
+  
+  /*message = "TASK RESULT\r\n\r\nEND\r\n\r\n";
+  sendMessage(masterSocketfd, message);
+  
+  message = "REMOVE WORKER\r\n\r\nEND\r\n\r\n";
+  sendMessage(masterSocketfd, message);
+  */
+
   return 0;
 }
 
@@ -37,17 +50,29 @@ int Worker::receiveMessage(int socket) {
      stream << buffer;
      std::memset(buffer, 0, BUFSIZ);
 
-     if(stream.str().find("\r\n\r\n") >= 0) break;
+     if(stream.str().find("\r\n\r\nEND\r\n\r\n") >= 0) break;
    }
 
    std::string message = stream.str();
    if (message.length() == 0) {
-     db_out << "Failed to receive message." << std::endl;
-     return -1;
-   } else {
-     db_out << "Received:\n" << message.c_str() << std::endl;
-     return 0;
-   }
+     //db_out << "Failed to receive message." << std::endl;
+   } else if (message.find_first_of("DONE") == 0) {
+     db_out << "Received message D:\n" << message << std::endl;
+     db_out << "Set running to false" << std::endl;
+     running = false;
+   } else if (message.find_first_of("WORKER ADDED") == 0) {
+     db_out << "Received message WA :\n" << message << std::endl;
+     // handle ack?
+   } else if (message.find_first_of("TASK PARAMS") == 0) {
+     db_out << "Received message TP :\n" << message << std::endl;
+     std::string outgoing = "TASK RESULT\r\n\r\nEND\r\n\r\n";
+     sendMessage(socket, outgoing);
+     
+     outgoing = "WORKER READY\r\n\r\nEND\r\n\r\n";
+     sendMessage(socket, outgoing);
+   } 
+
+   return 0;
 }
 
 int Worker::initialize_socket(int port, std::string name) {
