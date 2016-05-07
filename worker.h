@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <pthread.h>
 
-static bool debug = true;
+static bool debug = false;
 #define db_out if(debug) std::cout
 
 static const std::string MASTER_PORT_TAG = "-mp";
@@ -28,6 +28,8 @@ static const std::string MASTER_ADDR_TAG = "-ma";
 template <class T>
 class Worker {
  private:
+  std::vector<T> samplers;
+
   int masterSocketfd = -1;
   std::queue<std::string> requests;
   bool running = false;
@@ -56,20 +58,19 @@ class Worker {
   }
 
   int sendMessage(int socket, std::string message) {
-    if(send(socket, message.c_str(), sizeof(message.c_str()),0) > 0){
-      db_out << "Successfully sent:\n" << message << std::endl;
+    if(send(socket, message.c_str(), sizeof(char)*message.length(),0) > 0){
       return 0;
     } else {
-      db_out << "Failed to send." << std::endl;
-      return -1;
+      return 1;
     }
+
   }
   
   int receiveMessage(int socket) {
     char buffer[BUFSIZ];
     std::stringstream stream;
     
-    while (recv(socket,buffer,sizeof(buffer),0) > 0) {
+    while (recv(socket,&buffer,BUFSIZ,0) > 0) {
       stream << buffer;
       std::memset(buffer, 0, BUFSIZ);
       
@@ -88,7 +89,10 @@ class Worker {
       // handle ack?
     } else if (message.find_first_of("TASK PARAMS") == 0) {
       db_out << "Received message TP :\n" << message << std::endl;
-      std::string outgoing = "TASK RESULT\r\n\r\nEND\r\n\r\n";
+
+      std::string data = samplers[0].sample();
+      std::string outgoing = "TASK RESULT: \n" + data + "\r\n\r\nEND\r\n\r\n";
+      
       sendMessage(socket, outgoing);
       
       outgoing = "WORKER READY\r\n\r\nEND\r\n\r\n";
@@ -110,6 +114,10 @@ class Worker {
     }
     
     db_out << "Failed to initialize socket" << std::endl;
+
+    T sampler;
+    samplers.push_back(sampler);
+
     return -1;
   }
 
