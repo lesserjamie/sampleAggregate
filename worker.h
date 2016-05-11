@@ -74,7 +74,7 @@ class Worker {
       stream << buffer;
       std::memset(buffer, 0, BUFSIZ);
       
-      if(stream.str().find("\r\n\r\nEND\r\n\r\n") >= 0) break;
+      if(stream.str().find("\r\n\r\nEND\r\n\r\n") != std::string::npos) break;
     }
     
     std::string message = stream.str();

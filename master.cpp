@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
   db_out << "Double check:" << std::endl;
   db_out << "Master Port: " <<  MasterPort << std::endl;
 
-  Master<FindPi> m(10000);
+  Master<FindPi> m(100);
   if (m.init(MasterPort) == 0) {
     m.run();
     m.cleanUp();
