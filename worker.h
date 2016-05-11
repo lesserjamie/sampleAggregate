@@ -81,14 +81,14 @@ class Worker {
     if (message.length() == 0) {
       //db_out << "Failed to receive message." << std::endl;
     } else if (message.find_first_of("DONE") == 0) {
-      db_out << "Received message D:\n" << message << std::endl;
+      db_out << "Received message D" << std::endl;
       db_out << "Set running to false" << std::endl;
       running = false;
     } else if (message.find_first_of("WORKER ADDED") == 0) {
-      db_out << "Received message WA :\n" << message << std::endl;
+      db_out << "Received message WA" << std::endl;
       // handle ack?
     } else if (message.find_first_of("TASK PARAMS") == 0) {
-      db_out << "Received message TP :\n" << message << std::endl;
+      db_out << "Received message TP" << std::endl;
 
       std::string data = samplers[0].sample();
       std::string outgoing = "TASK RESULT: \n" + data + "\r\n\r\nEND\r\n\r\n";

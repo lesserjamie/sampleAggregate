@@ -26,6 +26,7 @@ static pthread_mutex_t readyWorkers_mutex;
 static pthread_mutex_t resultStrings_mutex;
 static pthread_mutex_t threadVector_mutex;
 static pthread_mutex_t numReceived_mutex;
+static pthread_mutex_t numSamples_mutex;
 static pthread_mutex_t numSendsInFlight_mutex;
 
 static const std::string PORT_TAG = "-p";
@@ -91,6 +92,7 @@ class Master {
     resultStrings_mutex = PTHREAD_MUTEX_INITIALIZER;
     threadVector_mutex = PTHREAD_MUTEX_INITIALIZER;
     numReceived_mutex = PTHREAD_MUTEX_INITIALIZER;
+    numSamples_mutex = PTHREAD_MUTEX_INITIALIZER;
     numSendsInFlight_mutex = PTHREAD_MUTEX_INITIALIZER;
     
     pthread_t thread0;
@@ -128,6 +130,13 @@ class Master {
 
   
     pthread_mutex_destroy(&running_mutex);
+    pthread_mutex_destroy(&seenWorkers_mutex);
+    pthread_mutex_destroy(&readyWorkers_mutex);
+    pthread_mutex_destroy(&resultStrings_mutex);
+    pthread_mutex_destroy(&threadVector_mutex);
+    pthread_mutex_destroy(&numReceived_mutex);
+    pthread_mutex_destroy(&numSamples_mutex);
+    pthread_mutex_destroy(&numSendsInFlight_mutex);
 
     return 0;
   }
@@ -139,7 +148,7 @@ class Master {
     pthread_mutex_unlock(&numSendsInFlight_mutex);
   
     if(send(socket, message.c_str(), sizeof(char)*message.length(),0) > 0){
-      db_out << "Successfully sent:\n" << message << std::endl;
+      //db_out << "Successfully sent:\n" << message << std::endl;
       pthread_mutex_lock(&numSendsInFlight_mutex);
       numSendsInFlight--;
       pthread_mutex_unlock(&numSendsInFlight_mutex);
@@ -163,10 +172,11 @@ class Master {
     bool keep_looping = running;
     pthread_mutex_unlock(&running_mutex);
 
-    while (recv(worker_socket,&buffer,BUFSIZ,0) > 0 && keep_looping) {
+    db_out << "In receive message for " << worker_socket << std::endl;
+
+    while ((recv(worker_socket,&buffer,BUFSIZ,0) > 0) && keep_looping) {
       stream << buffer;
 
-    
       message = stream.str();
       if(message.find("\r\n\r\nEND\r\n\r\n") != std::string::npos) break;
 
@@ -177,28 +187,34 @@ class Master {
       std::memset(buffer, 0, BUFSIZ);
     }
   
-    db_out << "Received message:\n" << message << std::endl;
+    //   db_out << "Received message:\n" << message << std::endl;
 
     if (message.length() == 0) {
       db_out << "Failed to receive message." << std::endl;
     } else if (message.find_first_of("WORKER READY") == 0) {
-   
+
+      db_out << "Received WORKER READY from " << worker_socket << std::endl;
+
       pthread_mutex_lock(&readyWorkers_mutex);
       readyWorkers.push(worker_socket);
       pthread_mutex_unlock(&readyWorkers_mutex);
 
       std::string reply = "WORKER ADDED\r\n\r\nEND\r\n\r\n";
-      sendMessage(worker_socket, reply);
+      //sendMessage(worker_socket, reply);
     
       pthread_mutex_lock(&seenWorkers_mutex);
       seenWorkers.push(worker_socket);
+      
+      db_out << "Seen worker queue length " << seenWorkers.size() << std::endl;
       pthread_mutex_unlock(&seenWorkers_mutex);
 
     } else if (message.find_first_of("TASK RESULT:\n") == 0) {
 
+      db_out << "Received TASK RESULT from " << worker_socket << std::endl;
+
       std::string data = message.substr(14, message.length() - 25);
 
-      db_out << "Data:" << data << ":" << std::endl;
+      //db_out << "Data:" << data << ":" << std::endl;
 
       pthread_mutex_lock(&resultStrings_mutex);
       resultStrings.push_back(data);
@@ -207,10 +223,19 @@ class Master {
       pthread_mutex_lock(&numReceived_mutex);
       numReceived++;
       int numRCopy = numReceived;
-      printf("%d out of %d\n", numReceived, numSamples);
+      //printf("%d out of %d\n", numReceived, numSamples);
       pthread_mutex_unlock(&numReceived_mutex);    
 
-      if (numSamples <= numRCopy) {
+
+      pthread_mutex_lock(&numSamples_mutex);
+      int numSamps = numSamples;
+      pthread_mutex_unlock(&numSamples_mutex);
+      
+      if (numRCopy > 0 && ((10*(numRCopy/(float)numSamps))/(float)10 - (int)(10*(numRCopy/(float)numSamps))/(float)10) == 0) {
+	printf("%d percent of samples received.\n",(int)(100*(numRCopy/(float)numSamps)));
+      }
+
+      if (numSamps <= numRCopy) {
 	std::string closeMessage = "DONE\r\n\r\nEND\r\n\r\n";
 	sendMessage(worker_socket, closeMessage);
 
@@ -226,6 +251,9 @@ class Master {
 	pthread_mutex_unlock(&seenWorkers_mutex);
       }
     } else if (message.find_first_of("REMOVE WORKER") == 0) {
+
+      db_out << "Received REMOVE WORKER from " << worker_socket << std::endl;
+
       pthread_mutex_lock(&seenWorkers_mutex);
       close(worker_socket);
       pthread_mutex_lock(&seenWorkers_mutex);
@@ -244,9 +272,11 @@ class Master {
       bool hasNext = false;
 
       pthread_mutex_lock(&seenWorkers_mutex);
+      //db_out << seenWorkers.size() << " workers in the queue" << std::endl;
       if (seenWorkers.size() > 0) {
 	hasNext = true;
 	next = seenWorkers.front();
+	db_out << "Looking at " << next << std::endl;
 	seenWorkers.pop();
       }
       pthread_mutex_unlock(&seenWorkers_mutex);
@@ -313,7 +343,7 @@ class Master {
     
       worker_socket = accept(socketfd,(struct sockaddr*)&sockAddrWorker, &sockAddrWorkerLength);
     
-      db_out << "Successfully accepted " << std::endl;
+      db_out << "Successfully accepted " << worker_socket << std::endl;
     
       receiveMessage(worker_socket);
       //printf("IM IN THE FIRST THREAD, running = %d\n", running);
