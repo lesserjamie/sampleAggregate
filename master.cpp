@@ -9,6 +9,7 @@ Write description here.
 
 int main(int argc, char** argv) {
   int MasterPort = 0;
+  int n = 0;
 
   if (argc < 3) {
     printf("Failed to provide enough arguments.\nSee README.md\n");
@@ -21,6 +22,8 @@ int main(int argc, char** argv) {
     if ((i+1) < argc) {
       if (arg == PORT_TAG) {
 	MasterPort = atoi(argv[i+1]);
+      } else if (arg == "-n") {
+	n = atoi(argv[i+1]);
       }
     }
   }
@@ -33,7 +36,7 @@ int main(int argc, char** argv) {
   db_out << "Double check:" << std::endl;
   db_out << "Master Port: " <<  MasterPort << std::endl;
 
-  Master<FindPi> m(100);
+  Master<FindPi> m(n);
   if (m.init(MasterPort) == 0) {
     m.run();
     m.cleanUp();
