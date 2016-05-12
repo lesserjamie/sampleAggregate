@@ -104,10 +104,12 @@ class Master {
     threadVector.push_back(thread0);
 
     pthread_t thread1;
-    if(pthread_create(&thread1, NULL, Master<T>::process_seen_workers_redirect, this) < 0) {
+    if(pthread_create(&thread1, NULL, Master<T>::process_ready_workers_redirect, this) < 0) {
       db_out << "Failed to create thread" << std::endl;
       return -1;
     }
+
+    threadVector.push_back(thread1);
 
     pthread_t thread2;
     if(pthread_create(&thread2, NULL, Master<T>::process_ready_workers_redirect, this) < 0) {
@@ -116,6 +118,33 @@ class Master {
     }
 
     threadVector.push_back(thread2);
+
+    pthread_t thread3;
+    if(pthread_create(&thread3, NULL, Master<T>::process_seen_workers_redirect, this) < 0) {
+      db_out << "Failed to create thread" << std::endl;
+      return -1;
+    }
+
+    threadVector.push_back(thread3);
+
+    pthread_t thread4;
+    if(pthread_create(&thread4, NULL, Master<T>::process_seen_workers_redirect, this) < 0) {
+      db_out << "Failed to create thread" << std::endl;
+      return -1;
+    }
+
+    threadVector.push_back(thread4);
+
+    pthread_t thread5;
+    if(pthread_create(&thread5, NULL, Master<T>::process_ready_workers_redirect, this) < 0) {
+      db_out << "Failed to create thread" << std::endl;
+      return -1;
+    }
+
+    threadVector.push_back(thread5);
+
+
+
  
     return 0;
   }
@@ -231,9 +260,11 @@ class Master {
       int numSamps = numSamples;
       pthread_mutex_unlock(&numSamples_mutex);
       
-      if (numRCopy > 0 && ((10*(numRCopy/(float)numSamps))/(float)10 - (int)(10*(numRCopy/(float)numSamps))/(float)10) == 0) {
-	printf("%d percent of samples received.\n",(int)(100*(numRCopy/(float)numSamps)));
-      }
+      //int update = 400;
+
+      //if (numRCopy > 0 && ((update*(numRCopy/(float)numSamps))/(float)update - (int)(update*(numRCopy/(float)numSamps))/(float)update) == 0) {
+	printf("%f percent of samples received.\n",(100*(numRCopy/(float)numSamps)));
+	//}
 
       if (numSamps <= numRCopy) {
 	std::string closeMessage = "DONE\r\n\r\nEND\r\n\r\n";

@@ -28,7 +28,7 @@ static const std::string MASTER_ADDR_TAG = "-ma";
 template <class T>
 class Worker {
  private:
-  std::vector<T> samplers;
+  T sampler;
 
   int masterSocketfd = -1;
   std::queue<std::string> requests;
@@ -90,7 +90,7 @@ class Worker {
     } else if (message.find_first_of("TASK PARAMS") == 0) {
       db_out << "Received message TP" << std::endl;
 
-      std::string data = samplers[0].sample();
+      std::string data = sampler.sample();
       std::string outgoing = "TASK RESULT: \n" + data + "\r\n\r\nEND\r\n\r\n";
       
       sendMessage(socket, outgoing);
@@ -115,8 +115,8 @@ class Worker {
     
     db_out << "Failed to initialize socket" << std::endl;
 
-    T sampler;
-    samplers.push_back(sampler);
+    //    T sampler;
+    //this->sampler = sampler;
 
     return -1;
   }

@@ -8,14 +8,49 @@
 #include <cstring>
 #include <vector>
 #include <algorithm>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <time.h>
 
 class FindPi {
  public:
-  FindPi(){}
+  FindPi(){
+    struct addrinfo hints, *info, *p;
+    int gai_result;
+
+    char hostname[1024];
+    hostname[1023] = '\0';
+    gethostname(hostname, 1023);
+
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC; /*either IPV4 or IPV6*/
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_CANONNAME;
+
+    if ((gai_result = getaddrinfo(hostname, "http", &hints, &info)) != 0) {
+      fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(gai_result));
+      exit(1);
+    }
+
+    int seed = std::hash<std::string>{}(info->ai_canonname) + time(NULL);
+
+    for(p = info; p != NULL; p = p->ai_next) {
+      printf("hostname: %s\n", p->ai_canonname);
+      printf("seed: %d\n", seed);
+    }
+
+    freeaddrinfo(info);
+    
+    std::srand(seed);
+  }
+
   ~FindPi(){}
   
   std::string sample() {
-    int n = 10000;
+
+    int n = 100000000;
     int count = 0;
 
     float x; 
