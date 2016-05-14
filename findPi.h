@@ -50,7 +50,7 @@ class FindPi {
   
   std::string sample() {
 
-    int n = 100000000;
+    int n = 100;
     int count = 0;
 
     float x; 

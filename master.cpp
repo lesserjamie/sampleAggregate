@@ -11,7 +11,7 @@ int main(int argc, char** argv) {
   int MasterPort = 0;
   int n = 0;
 
-  if (argc < 3) {
+  if (argc < 5) {
     printf("Failed to provide enough arguments.\nSee README.md\n");
     return 0;
   }
