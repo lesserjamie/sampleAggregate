@@ -5,3 +5,4 @@ sa: main.cpp SampleAggregate.h
 
 clean:
 	rm sa
+	rm -r sa.dSYM
