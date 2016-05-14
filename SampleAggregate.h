@@ -2,6 +2,7 @@
 
     (c) 2016 Jamie Lesser, Emily Hoyt
 */
+
 #ifndef SAMPLEAGGREGATE_H
 #define SAMPLEAGGREGATE_H
 
@@ -19,10 +20,10 @@
 #include <algorithm>
 #include <pthread.h>
 
-static bool debug = true;
+static bool debug = false;
 #define db_out if(debug) std::cout
 
-static pthread_mutex_t running_mutex;
+static pthread_mutex_t isRunning_mutex;
 static pthread_mutex_t seenWorkers_mutex;
 static pthread_mutex_t resultStrings_mutex;
 static pthread_mutex_t threadVector_mutex;
@@ -47,7 +48,7 @@ class Master {
 
   std::vector<pthread_t> threadVector;
 
-  bool running = false;
+  bool isRunning = false;
 
   int initialize_socket(int port) {
     int sock; 
@@ -84,7 +85,7 @@ class Master {
   int initialize_threadpool() {
     // Initialize locks
 
-    running_mutex = PTHREAD_MUTEX_INITIALIZER;
+    isRunning_mutex = PTHREAD_MUTEX_INITIALIZER;
     seenWorkers_mutex = PTHREAD_MUTEX_INITIALIZER;
     resultStrings_mutex = PTHREAD_MUTEX_INITIALIZER;
     threadVector_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -128,7 +129,7 @@ class Master {
     }
 
   
-    pthread_mutex_destroy(&running_mutex);
+    pthread_mutex_destroy(&isRunning_mutex);
     pthread_mutex_destroy(&seenWorkers_mutex);
     pthread_mutex_destroy(&resultStrings_mutex);
     pthread_mutex_destroy(&threadVector_mutex);
@@ -168,9 +169,9 @@ class Master {
     char buffer[bite];
     std::stringstream stream;
     std::string message;
-    pthread_mutex_lock(&running_mutex);
-    bool keep_looping = running;
-    pthread_mutex_unlock(&running_mutex);
+    pthread_mutex_lock(&isRunning_mutex);
+    bool keep_looping = isRunning;
+    pthread_mutex_unlock(&isRunning_mutex);
 
     db_out << "In receive message for " << worker_socket << std::endl;
 
@@ -181,9 +182,9 @@ class Master {
       message = stream.str();
       if(message.find("\r\n\r\nEND\r\n\r\n") != std::string::npos) break;
 
-      pthread_mutex_lock(&running_mutex);
-      keep_looping = running;
-      pthread_mutex_unlock(&running_mutex);
+      pthread_mutex_lock(&isRunning_mutex);
+      keep_looping = isRunning;
+      pthread_mutex_unlock(&isRunning_mutex);
 
       std::memset(buffer, 0, bite);
     }
@@ -255,9 +256,9 @@ class Master {
 	std::string closeMessage = "DONE\r\n\r\nEND\r\n\r\n";
 	sendMessage(worker_socket, closeMessage);
 
-	pthread_mutex_lock(&running_mutex);
-	running = false;
-	pthread_mutex_unlock(&running_mutex);
+	pthread_mutex_lock(&isRunning_mutex);
+	isRunning = false;
+	pthread_mutex_unlock(&isRunning_mutex);
       
 	db_out << "Set running to false\n" << std::endl;
 
@@ -279,9 +280,9 @@ class Master {
   }
 
   void* process_seen_workers(void) {
-    pthread_mutex_lock(&running_mutex);
-    bool keep_looping = running;
-    pthread_mutex_unlock(&running_mutex);
+    pthread_mutex_lock(&isRunning_mutex);
+    bool keep_looping = isRunning;
+    pthread_mutex_unlock(&isRunning_mutex);
   
     while(keep_looping) {
       int next = 0;
@@ -301,9 +302,9 @@ class Master {
 	receiveMessage(next);
       }
     
-      pthread_mutex_lock(&running_mutex);
-      keep_looping = running;
-      pthread_mutex_unlock(&running_mutex);
+      pthread_mutex_lock(&isRunning_mutex);
+      keep_looping = isRunning;
+      pthread_mutex_unlock(&isRunning_mutex);
     
     }
 
@@ -311,9 +312,9 @@ class Master {
   }
 
   void* accept_incoming_workers(void) {
-    pthread_mutex_lock(&running_mutex);
-    bool keep_looping = running;
-    pthread_mutex_unlock(&running_mutex);
+    pthread_mutex_lock(&isRunning_mutex);
+    bool keep_looping = isRunning;
+    pthread_mutex_unlock(&isRunning_mutex);
   
     int worker_socket = 0;
     socklen_t sockAddrWorkerLength;
@@ -328,12 +329,12 @@ class Master {
       db_out << "Successfully accepted " << worker_socket << std::endl;
     
       receiveMessage(worker_socket);
-      //printf("IM IN THE FIRST THREAD, running = %d\n", running);
+      //printf("IM IN THE FIRST THREAD, running = %d\n", isRunning);
     
     
-      pthread_mutex_lock(&running_mutex);
-      keep_looping = running;
-      pthread_mutex_unlock(&running_mutex);
+      pthread_mutex_lock(&isRunning_mutex);
+      keep_looping = isRunning;
+      pthread_mutex_unlock(&isRunning_mutex);
     }
 
     pthread_exit(NULL);
@@ -352,6 +353,8 @@ class Master {
   ~Master() {}
   
   int init(int port, int numSamples) {
+    this->numSamples = numSamples;
+
     int socket = initialize_socket(port);
     if(socket >= 0) {
       socketfd = socket;
@@ -364,15 +367,15 @@ class Master {
   }
  
   int run() {
-    running = true;
-    bool keep_looping = running;
+    isRunning = true;
+    bool keep_looping = isRunning;
 
     initialize_threadpool();
 
     while(keep_looping) {
-      pthread_mutex_lock(&running_mutex);
-      keep_looping = running;
-      pthread_mutex_unlock(&running_mutex);
+      pthread_mutex_lock(&isRunning_mutex);
+      keep_looping = isRunning;
+      pthread_mutex_unlock(&isRunning_mutex);
     }
 
     db_out << "Received samples:" << std::endl;
@@ -422,14 +425,14 @@ class Master {
 template <class T>
 class Worker {
  private:
-  T sampler;
+  T* sampler;
 
   int masterSocketfd = -1;
   std::queue<std::string> requests;
 
   std::vector<pthread_t> threadVector;
 
-  bool running = false;
+  bool isRunning = false;
   
   int initialize_socket(int port, std::string name) {
     int sock; 
@@ -481,10 +484,10 @@ class Worker {
       //db_out << "Failed to receive message." << std::endl;
     } else if ((message.find_first_of("DONE") != std::string::npos) && (message.find_first_of("DONE") == 0)) {
       db_out << "Received message D" << std::endl;
-      db_out << "Set running to false" << std::endl;
-      pthread_mutex_lock(&running_mutex);
-      running = false;
-      pthread_mutex_unlock(&running_mutex);
+      db_out << "Set isRunning to false" << std::endl;
+      pthread_mutex_lock(&isRunning_mutex);
+      isRunning = false;
+      pthread_mutex_unlock(&isRunning_mutex);
     
     } else if ((message.find_first_of("WORKER ADDED") != std::string::npos) && (message.find_first_of("WORKER ADDED") == 0)) {
       db_out << "Received message WA" << std::endl;
@@ -495,36 +498,36 @@ class Worker {
   }
 
   void* process_messages(void) {
-    pthread_mutex_lock(&running_mutex);
-    bool keep_looping = running;
-    pthread_mutex_unlock(&running_mutex);
+    pthread_mutex_lock(&isRunning_mutex);
+    bool keep_looping = isRunning;
+    pthread_mutex_unlock(&isRunning_mutex);
 
     while(keep_looping) {
       receiveMessage(masterSocketfd);
 
-      pthread_mutex_lock(&running_mutex);
-      keep_looping = running;
-      pthread_mutex_unlock(&running_mutex);
+      pthread_mutex_lock(&isRunning_mutex);
+      keep_looping = isRunning;
+      pthread_mutex_unlock(&isRunning_mutex);
     }
     
     pthread_exit(NULL);
   }
 
   void* send_samples(void) {
-    pthread_mutex_lock(&running_mutex);
-    bool keep_looping = running;
-    pthread_mutex_unlock(&running_mutex);
+    pthread_mutex_lock(&isRunning_mutex);
+    bool keep_looping = isRunning;
+    pthread_mutex_unlock(&isRunning_mutex);
 
     while(keep_looping) {
-      std::string data = sampler.sample();
+      std::string data = sampler->sample();
       std::string outgoing = "TASK RESULT: \n" + data + "\r\n\r\nEND\r\n\r\n";
       
       sendMessage(masterSocketfd, outgoing);
 
-      pthread_mutex_lock(&running_mutex);
-      keep_looping = running;
-      db_out << "Running: " << running << std::endl;
-      pthread_mutex_unlock(&running_mutex);
+      pthread_mutex_lock(&isRunning_mutex);
+      keep_looping = isRunning;
+      db_out << "IsRunning: " << isRunning << std::endl;
+      pthread_mutex_unlock(&isRunning_mutex);
     }
     
     pthread_exit(NULL);
@@ -540,7 +543,7 @@ class Worker {
 
   int initialize_threadpool() {
     // Initialize locks
-    running_mutex = PTHREAD_MUTEX_INITIALIZER;
+    isRunning_mutex = PTHREAD_MUTEX_INITIALIZER;
 
     pthread_t thread0;
     if(pthread_create(&thread0, NULL, Worker<T>::process_messages_redirect, this) < 0) {
@@ -569,48 +572,45 @@ class Worker {
       }
     }
 
-    pthread_mutex_destroy(&running_mutex);
+    pthread_mutex_destroy(&isRunning_mutex);
 
     return 0;
   }
 
  public:
   Worker(){}
-  ~Worker(){}
+  ~Worker(){
+    sampler = NULL;
+    delete sampler;
+  }
 
   int init(int port, std::string addr) {
     int socket = initialize_socket(port, addr);
     if (socket >= 0) {
       masterSocketfd = socket;
+      sampler = new T();
+
       return 0;
     }
     
     db_out << "Failed to initialize socket" << std::endl;
 
-    //    T sampler;
-    //this->sampler = sampler;
+
 
     return -1;
   }
 
   int run() {
-    running = true;
-    bool keep_looping = running;
+    isRunning = true;
+    bool keep_looping = isRunning;
     
     initialize_threadpool();
 
     while(keep_looping) {
-      pthread_mutex_lock(&running_mutex);
-      keep_looping = running;
-      pthread_mutex_unlock(&running_mutex);
+      pthread_mutex_lock(&isRunning_mutex);
+      keep_looping = isRunning;
+      pthread_mutex_unlock(&isRunning_mutex);
     }
-    
-    /*message = "TASK RESULT\r\n\r\nEND\r\n\r\n";
-      sendMessage(masterSocketfd, message);
-      
-      message = "REMOVE WORKER\r\n\r\nEND\r\n\r\n";
-      sendMessage(masterSocketfd, message);
-    */
     
     return 0;
   }
@@ -634,41 +634,50 @@ class Worker {
 template <class T>
 class SampleAggregate {
  private: 
-  bool isMaster = false;
-  Worker<T> worker;
-  Master<T> master;
+  bool isMaster     = false;
+  Worker<T>* worker = NULL;
+  Master<T>* master = NULL;
 
  public:
   SampleAggregate(){}
-  ~SampleAggregate(){}
+  
+  ~SampleAggregate(){
+    master = NULL;
+    delete master;
+
+    worker = NULL;
+    delete worker;
+  }
 
   //General init method
   int init(int port, std::string addr, int num, bool isMaster) {
     this->isMaster = isMaster;
     if (isMaster) return init(port, num);
-    else return init(port, addr);
+    return init(port, addr);
   }
 
   //Init method for master node
   int init(int port, int num) {
     isMaster = true;
-    return master.init(port, num);
+    master = new Master<T>();
+    return master->init(port, num);
   }
 
   //Init method for worker node
   int init(int port, std::string addr) {
     isMaster = false;
-    return worker.init(port, addr);
+    worker = new Worker<T>();
+    return worker->init(port, addr);
   }
 
   int run() {
-    if (isMaster) return master.run();
-    return worker.run();
+    if (isMaster) return master->run();
+    return worker->run();
   }
 
   int cleanUp() {
-    if (isMaster) return master.cleanUp();
-    return worker.cleanUp();
+    if (isMaster) return master->cleanUp();
+    return worker->cleanUp();
   }
 
 };
