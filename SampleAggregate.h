@@ -442,6 +442,7 @@ class Worker {
   int receiveMessage(int socketfd) {
     size_t bite = sizeof(char);
     char buffer[bite];
+
     bool is_running;
     std::stringstream stream;
     std::string message;
