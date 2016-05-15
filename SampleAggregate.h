@@ -456,7 +456,9 @@ class Worker {
       std::memset(buffer, 0, bite);
 
       message = stream.str();
-      if(message.find(MSG_END_STR) != std::string::npos) break;
+      if(message.find(MSG_END_STR) != std::string::npos && 
+	 ((message.length() - MSG_END_STR.length()) == 
+	  message.find(MSG_END_STR))) break;
 
       pthread_mutex_lock(&is_running_mutex);
       is_running = is_running_;
