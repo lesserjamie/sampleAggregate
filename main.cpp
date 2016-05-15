@@ -60,7 +60,8 @@ int main(int argc, char** argv) {
 
   SampleAggregate<FindPi> sa;
   if (sa.init(port, addr, n, master) == 0) {
-    sa.run();
+    std::string result = sa.run();
+    if (master) std::cout << "Pi is about " << result << "." << std::endl;
     sa.cleanUp();
   } 
 
