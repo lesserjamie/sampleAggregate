@@ -63,7 +63,8 @@ class Master {
     sockAddrServer.sin_addr.s_addr = htonl(INADDR_ANY);
   
     // Bind the socket
-    if(bind(sock, (struct sockaddr*)&sockAddrServer, sizeof(sockAddrServer)) < 0) {
+    if(bind(sock, (struct sockaddr*)&sockAddrServer, sizeof(sockAddrServer)) 
+       < 0) {
       db_out << "Failed to bind." << std::endl;
       return -1;
     }
@@ -94,7 +95,8 @@ class Master {
     numSendsInFlight_mutex = PTHREAD_MUTEX_INITIALIZER;
     
     pthread_t thread0;
-    if(pthread_create(&thread0, NULL, Master<T>::accept_incoming_workers_redirect, this) < 0) {
+    if(pthread_create(&thread0, NULL, 
+		      Master<T>::accept_incoming_workers_redirect, this) < 0) {
       db_out << "Failed to create thread" << std::endl;
       return -1;
     }
@@ -102,7 +104,8 @@ class Master {
     threadVector.push_back(thread0);
 
     pthread_t thread3;
-    if(pthread_create(&thread3, NULL, Master<T>::process_seen_workers_redirect, this) < 0) {
+    if(pthread_create(&thread3, NULL, 
+		      Master<T>::process_seen_workers_redirect, this) < 0) {
       db_out << "Failed to create thread" << std::endl;
       return -1;
     }
@@ -110,7 +113,8 @@ class Master {
     threadVector.push_back(thread3);
 
     pthread_t thread4;
-    if(pthread_create(&thread4, NULL, Master<T>::process_seen_workers_redirect, this) < 0) {
+    if(pthread_create(&thread4, NULL, 
+		      Master<T>::process_seen_workers_redirect, this) < 0) {
       db_out << "Failed to create thread" << std::endl;
       return -1;
     }
@@ -191,21 +195,21 @@ class Master {
   
     
     // shave off junk at end
-    message = message.substr(0, message.length() - message.find_first_of("\r\n\r\nEND\r\n\r\n") + std::string("\r\n\r\nEND\r\n\r\n").length());
+    message = message.substr(0, message.length() - 
+			     message.find_first_of("\r\n\r\nEND\r\n\r\n") 
+			     + std::string("\r\n\r\nEND\r\n\r\n").length());
 
     db_out << "Received message:\n" << message << std::endl;
     db_out << "npos is: " << std::string::npos << std::endl;
-    db_out << "Result of find first worker ready: " << message.find_first_of("WORKER READY") << std::endl;
-    db_out << "Result of find first task result: " << message.find_first_of("TASK RESULT") << std::endl;
-
-
-    
-    
-
+    db_out << "Result of find first worker ready: " 
+	   << message.find_first_of("WORKER READY") << std::endl;
+    db_out << "Result of find first task result: " 
+	   << message.find_first_of("TASK RESULT") << std::endl;
 
     if (message.length() == 0) {
       db_out << "Failed to receive message." << std::endl;
-    } else if ((message.find_first_of("WORKER READY") != std::string::npos) && (message.find_first_of("WORKER READY") == 0)) {
+    } else if ((message.find_first_of("WORKER READY") != std::string::npos) 
+	       && (message.find_first_of("WORKER READY") == 0)) {
 
       db_out << message.find_first_of("WORKER READY") << std::endl;
 
@@ -218,7 +222,8 @@ class Master {
       //std::string reply = "WORKER ADDED\r\n\r\nEND\r\n\r\n";
       //sendMessage(worker_socket, reply);
 
-    } else if ((message.find_first_of("TASK RESULT") != std::string::npos) && (message.find_first_of("TASK RESULT") == 0)) {
+    } else if ((message.find_first_of("TASK RESULT") != std::string::npos) 
+	       && (message.find_first_of("TASK RESULT") == 0)) {
 
       db_out << message.find_first_of("TASK RESULT") << std::endl;
 
@@ -227,7 +232,9 @@ class Master {
       int header_length = std::string("TASK RESULT: \n").length();
       int ender_length = std::string("\r\n\r\nEND\r\n\r\n").length();
 
-      std::string data = message.substr(header_length, message.length() - header_length - ender_length);
+      std::string data = message.substr(header_length, 
+					message.length() - 
+					header_length - ender_length);
 
       db_out << "Data:" << data << ":" << std::endl;
 
@@ -248,8 +255,10 @@ class Master {
       
       //int update = 400;
 
-      //if (numRCopy > 0 && ((update*(numRCopy/(float)numSamps))/(float)update - (int)(update*(numRCopy/(float)numSamps))/(float)update) == 0) {
-	printf("%f percent of samples received.\n",(100*(numRCopy/(float)numSamps)));
+      //if (numRCopy > 0 && ((update*(numRCopy/(float)numSamps))/(float)update 
+      // - (int)(update*(numRCopy/(float)numSamps))/(float)update) == 0) {
+	printf("%f percent of samples received.\n",
+	       (100*(numRCopy/(float)numSamps)));
 	//}
 
       if (numSamps <= numRCopy) {
@@ -267,7 +276,8 @@ class Master {
 	seenWorkers.push(worker_socket);
 	pthread_mutex_unlock(&seenWorkers_mutex);
       }
-    } else if ((message.find_first_of("REMOVE WORKER") != std::string::npos) && (message.find_first_of("REMOVE WORKER") == 0)) {
+    } else if ((message.find_first_of("REMOVE WORKER") != std::string::npos) 
+	       && (message.find_first_of("REMOVE WORKER") == 0)) {
 
       db_out << "Received REMOVE WORKER from " << worker_socket << std::endl;
 
@@ -324,7 +334,8 @@ class Master {
   
     while (keep_looping) {
     
-      worker_socket = accept(socketfd,(struct sockaddr*)&sockAddrWorker, &sockAddrWorkerLength);
+      worker_socket = accept(socketfd,(struct sockaddr*)&sockAddrWorker, 
+			     &sockAddrWorkerLength);
     
       db_out << "Successfully accepted " << worker_socket << std::endl;
     
@@ -448,7 +459,8 @@ class Worker {
     struct hostent *hp = gethostbyname(name.c_str());
     bcopy(hp->h_addr, &(sockAddrServer.sin_addr.s_addr), hp->h_length);
 
-    if(connect(sock, (struct sockaddr*)&sockAddrServer, sizeof(sockAddrServer)) < 0) {
+    if(connect(sock, (struct sockaddr*)&sockAddrServer, 
+	       sizeof(sockAddrServer)) < 0) {
       db_out << "Failed to connect." << std::endl;
       return -1;
     }
@@ -482,14 +494,16 @@ class Worker {
     std::string message = stream.str();
     if (message.length() == 0) {
       //db_out << "Failed to receive message." << std::endl;
-    } else if ((message.find_first_of("DONE") != std::string::npos) && (message.find_first_of("DONE") == 0)) {
+    } else if ((message.find_first_of("DONE") != std::string::npos) 
+	       && (message.find_first_of("DONE") == 0)) {
       db_out << "Received message D" << std::endl;
       db_out << "Set isRunning to false" << std::endl;
       pthread_mutex_lock(&isRunning_mutex);
       isRunning = false;
       pthread_mutex_unlock(&isRunning_mutex);
     
-    } else if ((message.find_first_of("WORKER ADDED") != std::string::npos) && (message.find_first_of("WORKER ADDED") == 0)) {
+    } else if ((message.find_first_of("WORKER ADDED") != std::string::npos) 
+	       && (message.find_first_of("WORKER ADDED") == 0)) {
       db_out << "Received message WA" << std::endl;
       // handle ack?
     }
@@ -546,7 +560,8 @@ class Worker {
     isRunning_mutex = PTHREAD_MUTEX_INITIALIZER;
 
     pthread_t thread0;
-    if(pthread_create(&thread0, NULL, Worker<T>::process_messages_redirect, this) < 0) {
+    if(pthread_create(&thread0, NULL, Worker<T>::process_messages_redirect, 
+		      this) < 0) {
       db_out << "Failed to create thread" << std::endl;
       return -1;
     }
@@ -554,7 +569,8 @@ class Worker {
     threadVector.push_back(thread0);
 
     pthread_t thread1;
-    if(pthread_create(&thread1, NULL, Worker<T>::send_samples_redirect, this) < 0) {
+    if(pthread_create(&thread1, NULL, Worker<T>::send_samples_redirect, 
+		      this) < 0) {
       db_out << "Failed to create thread" << std::endl;
       return -1;
     }
@@ -580,8 +596,8 @@ class Worker {
  public:
   Worker(){}
   ~Worker(){
-    sampler = NULL;
     delete sampler;
+    sampler = NULL;
   }
 
   int init(int port, std::string addr) {
@@ -642,11 +658,11 @@ class SampleAggregate {
   SampleAggregate(){}
   
   ~SampleAggregate(){
-    master = NULL;
     delete master;
+    master = NULL;
 
-    worker = NULL;
     delete worker;
+    worker = NULL;
   }
 
   //General init method
