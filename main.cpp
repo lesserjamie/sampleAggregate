@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
       std::cout << "Pi is about " << result << "." << std::endl;
       clock_t end = clock();
       double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-      std::cout << "Took " << elapsed_secs << "to compute."
+      std::cout << "Took " << elapsed_secs << "to compute.";
     }
     sa.cleanUp();
   } 
