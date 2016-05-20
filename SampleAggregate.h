@@ -33,6 +33,7 @@ static pthread_mutex_t workers_log_mutex;
 static pthread_mutex_t sample_packets_mutex;
 static pthread_mutex_t thread_vector_mutex;
 static pthread_mutex_t num_samples_mutex;
+static pthread_mutex_t num_received_mutex;
 static pthread_mutex_t num_sending_mutex;
 
 template <class T>
@@ -132,6 +133,7 @@ class Master {
                              //   network. Prevents cutting messages short or 
                              //   sending trash messages.
   size_t num_samples_  = 0;  // Goal number of sample packets to be received.
+  size_t num_received_ = 0;  // Number of samples received so far.
   double time_to_run_  = 0;  // Time in seconds between first worker contact 
                              //   and computing the result.
   double begin_time_   = 0;  // The time at which the first worker contacted 
@@ -177,6 +179,7 @@ class Master {
     sample_packets_mutex = PTHREAD_MUTEX_INITIALIZER;
     thread_vector_mutex = PTHREAD_MUTEX_INITIALIZER;
     num_samples_mutex = PTHREAD_MUTEX_INITIALIZER;
+    num_received_mutex = PTHREAD_MUTEX_INITIALIZER;
     num_sending_mutex = PTHREAD_MUTEX_INITIALIZER;
     
     for (i = 0; i < 1; ++i) {
@@ -192,6 +195,16 @@ class Master {
     for (i = 0; i < 2; ++i) {
       if (pthread_create(&thread, NULL, 
 			 Master<T>::processWorkersRedirect, 
+			 this) < 0) {
+	std::cerr << "Failed to create thread." << std::endl;
+      } else {
+	thread_vector_.push_back(thread);
+      }
+    }
+
+    for (i = 0; i < 1; ++i) {
+      if (pthread_create(&thread, NULL, 
+			 Master<T>::partiallyAggregateRedirect, 
 			 this) < 0) {
 	std::cerr << "Failed to create thread." << std::endl;
       } else {
@@ -219,6 +232,7 @@ class Master {
     pthread_mutex_destroy(&sample_packets_mutex);
     pthread_mutex_destroy(&thread_vector_mutex);
     pthread_mutex_destroy(&num_samples_mutex);
+    pthread_mutex_destroy(&num_received_mutex);
     pthread_mutex_destroy(&num_sending_mutex);
 
     return 0;
@@ -288,9 +302,13 @@ class Master {
 	
 	pthread_mutex_lock(&sample_packets_mutex);
 	sample_packets_.push_back(data);
-	num_received = sample_packets_.size();
 	pthread_mutex_unlock(&sample_packets_mutex);
 	
+	pthread_mutex_lock(&num_received_mutex);
+	num_received_++;
+	num_received = num_received_;
+	pthread_mutex_unlock(&num_received_mutex);
+
 	pthread_mutex_lock(&num_samples_mutex);
 	num_samples = num_samples_;
 	pthread_mutex_unlock(&num_samples_mutex);
@@ -381,12 +399,55 @@ class Master {
     pthread_exit(NULL);
   }
 
+  void* partiallyAggregate(void) {
+    bool is_running;
+    bool aggregate;
+
+    pthread_mutex_lock(&is_running_mutex);
+    is_running = is_running_;
+    pthread_mutex_unlock(&is_running_mutex);
+
+    while (is_running) {
+      std::vector<std::string> sample_packets;
+
+      pthread_mutex_lock(&sample_packets_mutex);
+      if (sample_packets_.size() >= 5000000) {
+	aggregate = true;
+	sample_packets.insert(sample_packets.end(), sample_packets_.begin(), sample_packets_.end());
+	sample_packets_.clear();
+      } else {
+	aggregate = false;
+      }
+      pthread_mutex_unlock(&sample_packets_mutex);
+      
+
+      if (aggregate) {
+	std::vector<std::string> new_sample_packets = aggregator_->partialAggregate(sample_packets);
+	
+	pthread_mutex_lock(&sample_packets_mutex);
+	sample_packets_.insert(sample_packets_.end(), sample_packets.begin(), sample_packets.end());
+	pthread_mutex_unlock(&sample_packets_mutex);
+      }
+
+
+      pthread_mutex_lock(&is_running_mutex);
+      is_running = is_running_;
+      pthread_mutex_unlock(&is_running_mutex);
+    }
+
+    pthread_exit(NULL);
+  }
+
   static void* processWorkersRedirect(void* arg) {
     return ((Master<T>*)arg)->processWorkers();
   }
 
   static void* acceptIncomingWorkersRedirect(void* arg) {
     return ((Master<T>*)arg)->acceptIncomingWorkers();
+  } 
+
+  static void* partiallyAggregateRedirect(void* arg) {
+    return ((Master<T>*)arg)->partiallyAggregate();
   } 
 
 }; 
