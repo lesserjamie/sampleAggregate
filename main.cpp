@@ -60,16 +60,10 @@ int main(int argc, char** argv) {
 
   SampleAggregate<FindPi> sa;
   if (sa.init(port, addr, n, master) == 0) {
-    clock_t begin;
-    if (master) {
-      begin = clock();
-    }
     std::string result = sa.run();
     if (master) {
       std::cout << "Pi is about " << result << "." << std::endl;
-      clock_t end = clock();
-      double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
-      std::cout << "Took " << elapsed_secs << "to compute.";
+      sa.printLog();
     }
     sa.cleanUp();
   } 

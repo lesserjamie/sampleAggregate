@@ -71,7 +71,6 @@ class Master {
     }
     
     result = aggregator_->aggregate(sample_packets_);
-
     end_time = clock();
     time_to_run_ = double(end_time - begin_time_) / CLOCKS_PER_SEC;
 
@@ -79,15 +78,14 @@ class Master {
   }
 
   int cleanUp() {
-    int next;
     bool wait_for_send = true;
+    int next;
 
     while (wait_for_send) {  
       pthread_mutex_lock(&num_sending_mutex);
       wait_for_send = (num_sending_ > 0);
       pthread_mutex_unlock(&num_sending_mutex);
     }
-
 
     cleanThreadpool();
   
@@ -229,25 +227,26 @@ class Master {
     pthread_mutex_lock(&num_sending_mutex);
     num_sending_++;
     pthread_mutex_unlock(&num_sending_mutex);
-    
+
     if (send(socketfd, message.c_str(), sizeof(char)*message.length(), 0) <= 0) {
       std::cerr << "Failed to send message." << std::endl;
       
       pthread_mutex_lock(&num_sending_mutex);
       num_sending_--;
       pthread_mutex_unlock(&num_sending_mutex);
+    
       return -1;
     }
     
     pthread_mutex_lock(&num_sending_mutex);
     num_sending_--;
     pthread_mutex_unlock(&num_sending_mutex);
-        
+    
     return 0;
   }
 
   int receiveMessage(int socketfd) {
-    size_t bite = sizeof(char);
+    size_t bite = BUFSIZ;
     char buffer[bite];
     bool is_running;
     std::stringstream stream;
@@ -271,7 +270,7 @@ class Master {
       is_running = is_running_;
       pthread_mutex_unlock(&is_running_mutex);
     }
-    
+
     if (is_running) {
       if (message.length() == 0) {
 	std::cerr << "Failed to receive message." << std::endl;
@@ -280,7 +279,6 @@ class Master {
 		  (message.find_first_of(SMP_PACKET_STR) == 0)) {
 	size_t num_samples;
 	size_t num_received;
-	
 	std::string data = message.substr(SMP_PACKET_STR.length(), 
 					  message.length() - 
 					  SMP_PACKET_STR.length() - 
@@ -300,17 +298,20 @@ class Master {
 	
 	if (num_samples <= num_received) {
 	  sendMessage(socketfd, JOB_DONE_STR + MSG_END_STR);
+	  
 	  pthread_mutex_lock(&is_running_mutex);
 	  is_running_ = false;
 	  pthread_mutex_unlock(&is_running_mutex);
 	} else {
+	  sendMessage(socketfd, "REQUEST" + MSG_END_STR);
+	  
 	  pthread_mutex_lock(&workers_mutex);
 	  workers_.push(socketfd);
 	  pthread_mutex_unlock(&workers_mutex);
 	}
-	
       }
     }
+
     return 0;
   }
 
@@ -333,7 +334,7 @@ class Master {
 	workers_.pop();
       }
       pthread_mutex_unlock(&workers_mutex);
-
+    
       if (hasNext) {
 	receiveMessage(next);
       }
@@ -357,6 +358,7 @@ class Master {
     pthread_mutex_unlock(&is_running_mutex);
   
     while (is_running) {
+
       socketfd = accept(socketfd_, (struct sockaddr*)&sock_addr, 
 			&sock_addr_length);
     
@@ -416,6 +418,10 @@ class Worker {
     is_running_ = true;
     bool is_running = is_running_;
     
+    std::string data = sampler_->sample();
+    std::string outgoing = SMP_PACKET_STR + data + MSG_END_STR;
+    sendMessage(master_socketfd_, outgoing);
+
     initializeThreadpool();
 
     while(is_running) {
@@ -479,7 +485,7 @@ class Worker {
   }
   
   int receiveMessage(int socketfd) {
-    size_t bite = sizeof(char);
+    size_t bite = BUFSIZ;
     char buffer[bite];
 
     bool is_running;
@@ -515,6 +521,11 @@ class Worker {
 	pthread_mutex_lock(&is_running_mutex);
 	is_running_ = false;
 	pthread_mutex_unlock(&is_running_mutex);    
+      } else if ((message.find_first_of("REQUEST") != std::string::npos) &&
+		 (message.find_first_of("REQUEST") == 0)) {
+	std::string data = sampler_->sample();
+	std::string outgoing = SMP_PACKET_STR + data + MSG_END_STR;
+	sendMessage(master_socketfd_, outgoing);
       }
     }
     
@@ -573,7 +584,7 @@ class Worker {
 
     for (i = 0; i < 1; ++i) {
       if (pthread_create(&thread, NULL, 
-			 Worker<T>::sendSamplesRedirect, 
+			 Worker<T>::processMessagesRedirect, 
 			 this) < 0) {
 	std::cerr << "Failed to create thread." << std::endl;
       } else {
