@@ -38,8 +38,8 @@ class FindPi {
   ~FindPi(){}
   
   std::string sample() {
-
-    int n = 100;
+    std::string result;
+    int n = 10000;
     int count = 0;
 
     float x; 
@@ -54,18 +54,57 @@ class FindPi {
       }
     }
 
-    return std::to_string(count/(float)n);
+    result = "(" + std::to_string(count/(float)n) + ", " + std::to_string(1) + ")";
+
+    return result;
 
   }
   
+  std::vector<std::string> partialAggregate(std::vector<std::string> samples) {
+    std::vector<std::string> results;
+    std::string result;
+    float sum = 0.0;
+    float total = 0;
+    float sample;
+    int num;
+    size_t pos;
+
+    for (size_t i = 0; i < samples.size(); i++) {
+      pos = samples[i].find_first_of(",");
+      if (pos != std::string::npos) {
+	sample = std::stof(samples[i].substr(1, pos - 1).c_str());
+	num = std::stoi(samples[i].substr(pos + 2, samples[i].length() - pos - 3));
+	sum += float(num)*sample;
+	total += num;
+      }
+    }
+
+    result = "(" + std::to_string(sum/(float)total) + ", " + std::to_string(total) + ")";
+    results.push_back(result);
+    return results;
+  }
+
   std::string aggregate(std::vector<std::string> samples) {
     float sum = 0.0;
-    
+    int total = 0;
+    float sample;
+    int num;
+    size_t pos;
+
+
     for (size_t i = 0; i < samples.size(); i++) {
-      sum += std::stof(samples[i].c_str());
+      pos = samples[i].find_first_of(",");
+      if (pos != std::string::npos) {
+	sample = std::stof(samples[i].substr(1, pos - 1).c_str());
+	num = std::stoi(samples[i].substr(pos + 2, samples[i].length() - pos - 3));
+	sum += float(num)*sample;
+	total += num;
+
+      }
+
     }
     
-    float pi = 4.0 * sum / samples.size();
+    float pi = 4.0 * sum / total;
     
     return std::to_string(pi);
   }
