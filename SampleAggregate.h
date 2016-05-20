@@ -411,7 +411,7 @@ class Master {
       std::vector<std::string> sample_packets;
 
       pthread_mutex_lock(&sample_packets_mutex);
-      if (sample_packets_.size() >= 5000000) {
+      if (sample_packets_.size() >= 50) {
 	aggregate = true;
 	sample_packets.insert(sample_packets.end(), sample_packets_.begin(), sample_packets_.end());
 	sample_packets_.clear();
